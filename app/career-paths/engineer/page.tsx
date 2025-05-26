@@ -5,74 +5,18 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, Clock, Users, Award, ArrowRight, Wrench, Zap, Cog, Thermometer, Waves, Building } from "lucide-react"
+import { BookOpen, Clock, Award, ArrowRight, Wrench, Zap, Cog, Thermometer, Waves, Building } from "lucide-react"
+import { engineerModules } from "@/lib/engineer-modules"
 
-const engineerModules = [
-  {
-    id: 1,
-    title: "Introduction to Physics for Engineers",
-    description: "Fundamental concepts, measurements, and the scientific method",
-    duration: "40 min",
-    difficulty: "Beginner",
-    icon: Wrench,
-    topics: ["SI Units", "Vector Analysis", "Scientific Method", "Problem Solving"],
-  },
-  {
-    id: 2,
-    title: "Mechanics: Forces and Motion",
-    description: "Newton's laws, forces, and their applications in engineering",
-    duration: "55 min",
-    difficulty: "Intermediate",
-    icon: Cog,
-    topics: ["Newton's Laws", "Force Analysis", "Friction", "Work & Energy"],
-  },
-  {
-    id: 3,
-    title: "Thermodynamics and Heat Transfer",
-    description: "Energy systems, heat engines, and thermal processes",
-    duration: "60 min",
-    difficulty: "Intermediate",
-    icon: Thermometer,
-    topics: ["Laws of Thermodynamics", "Heat Engines", "Thermal Processes", "Heat Transfer"],
-  },
-  {
-    id: 4,
-    title: "Electricity and Magnetism",
-    description: "Electric circuits, electromagnetic fields, and power systems",
-    duration: "65 min",
-    difficulty: "Advanced",
-    icon: Zap,
-    topics: ["Electric Circuits", "Electromagnetic Fields", "Power Systems", "Motors & Generators"],
-  },
-  {
-    id: 5,
-    title: "Wave Physics and Acoustics",
-    description: "Wave propagation, sound, and vibration analysis",
-    duration: "50 min",
-    difficulty: "Advanced",
-    icon: Waves,
-    topics: ["Wave Properties", "Sound Waves", "Vibration Analysis", "Acoustic Design"],
-  },
-  {
-    id: 6,
-    title: "Materials Science and Structures",
-    description: "Material properties, stress analysis, and structural design",
-    duration: "55 min",
-    difficulty: "Advanced",
-    icon: Building,
-    topics: ["Material Properties", "Stress & Strain", "Structural Analysis", "Design Principles"],
-  },
-]
+const moduleIcons = [Wrench, Thermometer, Zap, Waves, Building]
 
 export default function EngineerCareerPath() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate loading time
     const timer = setTimeout(() => {
       setLoading(false)
     }, 1000)
-
     return () => clearTimeout(timer)
   }, [])
 
@@ -92,7 +36,7 @@ export default function EngineerCareerPath() {
       <div className="text-center mb-12">
         <div className="flex justify-center mb-4">
           <div className="p-4 bg-orange-100 rounded-full">
-            <Wrench className="h-12 w-12 text-orange-600" />
+            <Cog className="h-12 w-12 text-orange-600" />
           </div>
         </div>
         <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
@@ -100,7 +44,7 @@ export default function EngineerCareerPath() {
         </h1>
         <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
           Master the fundamental physics principles that form the foundation of engineering design, analysis, and
-          innovation.
+          innovation across all engineering disciplines.
         </p>
       </div>
 
@@ -138,8 +82,8 @@ export default function EngineerCareerPath() {
 
       {/* Modules Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {engineerModules.map((module) => {
-          const IconComponent = module.icon
+        {engineerModules.map((module, index) => {
+          const IconComponent = moduleIcons[index % moduleIcons.length]
 
           return (
             <Card
@@ -167,16 +111,16 @@ export default function EngineerCareerPath() {
                   </div>
                   <div className="flex items-center gap-1">
                     <BookOpen className="h-4 w-4" />
-                    {module.topics.length} topics
+                    {module.content.keyPoints.length} topics
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">Key Topics:</div>
+                  <div className="text-sm font-medium">Key Areas:</div>
                   <div className="flex flex-wrap gap-1">
-                    {module.topics.map((topic, index) => (
+                    {module.content.keyPoints.slice(0, 3).map((point, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
-                        {topic}
+                        {point.split(" - ")[0]}
                       </Badge>
                     ))}
                   </div>
@@ -200,8 +144,8 @@ export default function EngineerCareerPath() {
       <Card className="mt-12">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Additional Resources
+            <BookOpen className="h-5 w-5" />
+            Engineering Physics Resources
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -209,18 +153,18 @@ export default function EngineerCareerPath() {
             <div>
               <h3 className="font-semibold mb-2">Study Materials</h3>
               <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• Engineering problem-solving exercises</li>
+                <li>• Advanced problem-solving techniques</li>
                 <li>• Real-world engineering case studies</li>
                 <li>• Interactive simulations and calculators</li>
-                <li>• Design project examples</li>
+                <li>• Professional engineering examples</li>
               </ul>
             </div>
             <div>
               <h3 className="font-semibold mb-2">Learning Support</h3>
               <ul className="space-y-1 text-sm text-muted-foreground">
                 <li>• Step-by-step solution methods</li>
-                <li>• Interactive quizzes and assessments</li>
-                <li>• Progress tracking and achievements</li>
+                <li>• Comprehensive assessments</li>
+                <li>• Hands-on laboratory activities</li>
                 <li>• Engineering community discussions</li>
               </ul>
             </div>
