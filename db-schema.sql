@@ -11,7 +11,7 @@ CREATE TABLE users (
 
 -- User progress tracking
 CREATE TABLE user_progress (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   career_path TEXT NOT NULL,
   completed_modules INTEGER[] DEFAULT '{}',
@@ -23,7 +23,7 @@ CREATE TABLE user_progress (
 
 -- Quiz results
 CREATE TABLE quiz_results (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   module_id INTEGER NOT NULL,
   career_path TEXT NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE achievements (
 
 -- User achievements
 CREATE TABLE user_achievements (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id),
   achievement_id TEXT NOT NULL REFERENCES achievements(id),
   earned_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -54,7 +54,7 @@ CREATE TABLE user_achievements (
 
 -- Learning resources
 CREATE TABLE learning_resources (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   description TEXT NOT NULL,
   url TEXT NOT NULL,

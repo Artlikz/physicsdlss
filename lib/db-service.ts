@@ -221,7 +221,7 @@ export async function getCurrentUser() {
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) return null
 
-    // Initialize user if needed
+    // Try to initialize user if needed, but don't fail if it doesn't work
     try {
       await initializeUserIfNeeded(
         userData.user.id,
@@ -229,21 +229,22 @@ export async function getCurrentUser() {
         userData.user.user_metadata?.full_name || "User",
       )
     } catch (error) {
-      console.error("Error initializing user:", error)
+      console.error("Error initializing user (non-fatal):", error)
+      // Continue anyway
     }
 
+    // Try to get additional user data from the users table (if exists)
     try {
-      // Get additional user data from the users table (if exists)
       const { data: userRecord, error } = await supabase.from("users").select("*").eq("id", userData.user.id).single()
 
       if (!error && userRecord) {
         return userRecord as User
       }
     } catch (error) {
-      console.warn("Error getting user data:", error)
+      console.warn("Error getting user data from users table (using fallback):", error)
     }
 
-    // Return basic user info if users table doesn't exist
+    // Return basic user info from auth if users table doesn't exist or fails
     return {
       id: userData.user.id,
       email: userData.user.email || "",
@@ -285,14 +286,18 @@ export async function deleteUser(userId: string) {
   }
 }
 
-// Initialize user if they don't exist in the users table
+// Update the initializeUserIfNeeded function to be more resilient
 async function initializeUserIfNeeded(userId: string, email: string, fullName: string) {
   try {
-    // Check if users table exists
+    console.log("Initializing user if needed:", { userId, email, fullName })
+
+    // Check if users table exists first
     const { error: tableCheckError } = await supabase.from("users").select("id").limit(1)
 
     if (tableCheckError && tableCheckError.message.includes("does not exist")) {
-      console.log("Users table doesn't exist, skipping initialization")
+      console.log("Users table doesn't exist, skipping user initialization")
+      // Initialize progress in local storage instead
+      await initializeUserProgressInLocalStorage(userId)
       return
     }
 
@@ -301,10 +306,14 @@ async function initializeUserIfNeeded(userId: string, email: string, fullName: s
 
     if (error && error.code !== "PGRST116") {
       console.error("Error checking user existence:", error)
+      // Fall back to local storage initialization
+      await initializeUserProgressInLocalStorage(userId)
       return
     }
 
     if (!data) {
+      console.log("User doesn't exist in users table, attempting to create...")
+
       // Create user record if it doesn't exist
       const newUser = {
         id: userId,
@@ -312,23 +321,104 @@ async function initializeUserIfNeeded(userId: string, email: string, fullName: s
         full_name: fullName,
       }
 
+      // Try to insert the user record directly first
       const { error: insertError } = await supabase.from("users").insert(newUser)
 
       if (insertError) {
-        console.error("Error creating user record:", insertError)
-        return
+        console.error("Error creating user record directly:", insertError)
+
+        // If it's an RLS error and we have the required environment variables, try the API
+        if (
+          insertError.message.includes("row-level security policy") &&
+          process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          process.env.SUPABASE_SERVICE_ROLE_KEY
+        ) {
+          console.log("Attempting to create user via API...")
+
+          try {
+            const response = await fetch("/api/create-user-record", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(newUser),
+            })
+
+            // Handle response properly
+            const contentType = response.headers.get("content-type")
+            let result
+
+            if (contentType && contentType.includes("application/json")) {
+              try {
+                result = await response.json()
+              } catch (jsonError) {
+                console.error("Error parsing JSON response:", jsonError)
+                throw new Error("Invalid JSON response from API")
+              }
+            } else {
+              const textResponse = await response.text()
+              console.error("Non-JSON response received:", textResponse)
+              throw new Error("Expected JSON response but got text")
+            }
+
+            if (!response.ok) {
+              console.error("API response not ok:", response.status, result)
+              throw new Error(`API returned ${response.status}: ${result.error || "Unknown error"}`)
+            } else {
+              console.log("User record created successfully via API:", result.message)
+            }
+          } catch (apiError) {
+            console.error("Error calling user creation API:", apiError)
+            console.log("Falling back to local storage initialization")
+            await initializeUserProgressInLocalStorage(userId)
+            return
+          }
+        } else {
+          console.log("Cannot use API (missing env vars or different error), falling back to local storage")
+          await initializeUserProgressInLocalStorage(userId)
+          return
+        }
+      } else {
+        console.log("User record created successfully")
       }
 
-      // Initialize user progress
-      await initializeUserProgress(userId)
+      // Initialize user progress in database if user was created successfully
+      try {
+        await initializeUserProgress(userId)
+      } catch (progressError) {
+        console.error("Error initializing user progress in database:", progressError)
+        await initializeUserProgressInLocalStorage(userId)
+      }
+    } else {
+      console.log("User record already exists")
     }
   } catch (error) {
     console.error("Error in initializeUserIfNeeded:", error)
+    // Fall back to local storage initialization
+    await initializeUserProgressInLocalStorage(userId)
+  }
+}
+
+// New function to initialize progress in local storage only
+async function initializeUserProgressInLocalStorage(userId: string) {
+  console.log("Initializing user progress in local storage only")
+
+  const careerPaths = ["engineer", "doctor", "pilot"]
+
+  for (const path of careerPaths) {
+    const progress = {
+      user_id: userId,
+      career_path: path,
+      completed_modules: [],
+      current_module: 1,
+      updated_at: new Date().toISOString(),
+    }
+
+    saveProgressToLocalStorage(userId, path, progress)
   }
 }
 
 // Replace the initializeUserProgress function with this version that doesn't rely on RPC calls
-
 async function initializeUserProgress(userId: string) {
   try {
     // Check if table exists
@@ -336,22 +426,7 @@ async function initializeUserProgress(userId: string) {
 
     if (tableCheckError && tableCheckError.message.includes("does not exist")) {
       console.log("User progress table doesn't exist, using local storage instead")
-
-      // Initialize progress in local storage
-      const careerPaths = ["engineer", "doctor", "pilot"]
-
-      for (const path of careerPaths) {
-        const progress = {
-          user_id: userId,
-          career_path: path,
-          completed_modules: [],
-          current_module: 1,
-          updated_at: new Date().toISOString(),
-        }
-
-        saveProgressToLocalStorage(userId, path, progress)
-      }
-
+      await initializeUserProgressInLocalStorage(userId)
       return
     }
 
@@ -384,6 +459,8 @@ async function initializeUserProgress(userId: string) {
     }
   } catch (error) {
     console.error("Error in initializeUserProgress:", error)
+    // Fall back to local storage
+    await initializeUserProgressInLocalStorage(userId)
   }
 }
 
@@ -405,17 +482,27 @@ export async function getUserProgress(userId: string, careerPath: string): Promi
       return localProgress
     }
 
-    // Check if table exists
+    // Check if table exists and has the correct structure
     try {
-      const { error: tableCheckError } = await supabase.from("user_progress").select("id").limit(1)
+      const { data: tableStructure, error: structureError } = await supabase
+        .from("user_progress")
+        .select("career_path")
+        .limit(1)
 
-      if (tableCheckError) {
-        console.log("User progress table doesn't exist, using default progress and saving to local storage")
-        saveProgressToLocalStorage(userId, careerPath, defaultProgress)
-        return defaultProgress
+      if (structureError) {
+        if (
+          structureError.message.includes("does not exist") ||
+          (structureError.message.includes("column") && structureError.message.includes("career_path"))
+        ) {
+          console.log(
+            "User progress table doesn't exist or missing career_path column, using default progress and saving to local storage",
+          )
+          saveProgressToLocalStorage(userId, careerPath, defaultProgress)
+          return defaultProgress
+        }
       }
     } catch (error) {
-      console.error("Error checking table existence:", error)
+      console.error("Error checking table structure:", error)
       saveProgressToLocalStorage(userId, careerPath, defaultProgress)
       return defaultProgress
     }
@@ -454,7 +541,7 @@ export async function getUserProgress(userId: string, careerPath: string): Promi
       saveProgressToLocalStorage(userId, careerPath, data as UserProgress)
       return data as UserProgress
     } catch (error) {
-      console.error("Error in getUserProgress:", error)
+      console.error("Error in getUserProgress database query:", error)
       saveProgressToLocalStorage(userId, careerPath, defaultProgress)
       return defaultProgress
     }
@@ -710,16 +797,10 @@ export async function isModuleUnlocked(userId: string, careerPath: string, modul
     if (localProgress) {
       console.log("Using local storage to check module unlock status")
       const completedModules = Array.isArray(localProgress.completed_modules) ? localProgress.completed_modules : []
-      const isUnlocked = completedModules.includes(moduleId - 1) || localProgress.current_module >= moduleId
+      const isUnlocked = completedModules.includes(moduleId - 1)
 
       console.log(`Module ${moduleId} unlock status from local storage: ${isUnlocked}`)
       console.log(`Completed modules from local storage: ${completedModules.join(", ")}`)
-
-      // For testing purposes, always unlock module 2
-      if (moduleId === 2) {
-        console.log("Forcing module 2 to be unlocked for testing")
-        return true
-      }
 
       return isUnlocked
     }
@@ -729,13 +810,6 @@ export async function isModuleUnlocked(userId: string, careerPath: string, modul
 
     if (tableCheckError) {
       console.log("User progress table doesn't exist, using default unlock rules")
-
-      // For testing purposes, always unlock module 2
-      if (moduleId === 2) {
-        console.log("Forcing module 2 to be unlocked for testing")
-        return true
-      }
-
       // By default, only module 1 is unlocked
       return false
     }
@@ -748,29 +822,15 @@ export async function isModuleUnlocked(userId: string, careerPath: string, modul
 
     console.log(`Completed modules for user ${userId}: ${JSON.stringify(completedModules)}`)
 
-    // Module is unlocked if the previous module is completed OR if it's the current module
-    const isUnlocked = completedModules.includes(moduleId - 1) || progress.current_module >= moduleId
+    // Module is unlocked only if the previous module is completed with perfect score
+    const isUnlocked = completedModules.includes(moduleId - 1)
 
     console.log(`Module ${moduleId} unlock status: ${isUnlocked}`)
     console.log(`Completed modules: ${completedModules.join(", ")}`)
-    console.log(`Current module: ${progress.current_module}`)
-
-    // For testing purposes, always unlock module 2
-    if (moduleId === 2) {
-      console.log("Forcing module 2 to be unlocked for testing")
-      return true
-    }
 
     return isUnlocked
   } catch (error) {
     console.error("Error checking module unlock status:", error)
-
-    // For testing purposes, unlock module 2 if there's an error
-    if (moduleId === 2) {
-      console.log("Error occurred, but unlocking module 2 anyway for testing")
-      return true
-    }
-
     return false
   }
 }

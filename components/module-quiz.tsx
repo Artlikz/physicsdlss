@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { MotionDiv, fadeIn } from "@/components/motion"
-import { CheckCircle, XCircle, AlertCircle, ArrowRight, RotateCcw } from "lucide-react"
+import { CheckCircle, XCircle, AlertCircle, ArrowRight, RotateCcw, Trophy, Star, Sparkles } from "lucide-react"
 import { saveQuizResult, updateUserProgress } from "@/lib/db-service"
 import { useRouter } from "next/navigation"
 
@@ -79,7 +79,7 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
       try {
         // Calculate final score including current question
         const finalScore = score + (selectedOption === currentQuestion.correctAnswer ? 1 : 0)
-        const passed = finalScore >= Math.ceil(totalQuestions * 0.7) // 70% passing score
+        const passed = finalScore === totalQuestions // Perfect score required
 
         console.log(`Quiz completed. Score: ${finalScore}/${totalQuestions}, Passed: ${passed}`)
 
@@ -91,12 +91,14 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
           score: finalScore,
           total_questions: totalQuestions,
           passed: passed,
-          time_taken_sec: 0, // We're not tracking time in this implementation
+          time_taken_sec: 0,
         })
 
-        // If passed, update user progress
+        // If passed with perfect score, update user progress
         if (passed) {
-          console.log(`Updating progress for user ${userId}, path ${careerPath}, module ${moduleId}`)
+          console.log(
+            `Perfect score achieved! Updating progress for user ${userId}, path ${careerPath}, module ${moduleId}`,
+          )
           const result = await updateUserProgress(userId, careerPath, moduleId)
           console.log("Progress update result:", result)
 
@@ -129,50 +131,55 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
   const continueToNextModule = () => {
     // Force refresh before navigating
     router.refresh()
-    router.push(`/${careerPath}`)
+    router.push(`/career-paths/${careerPath}`)
   }
 
   const isCorrect = selectedOption === currentQuestion.correctAnswer
-  const quizPassed = score >= Math.ceil(totalQuestions * 0.7) // 70% passing score
+  const finalScore = score + (isAnswerChecked && selectedOption === currentQuestion.correctAnswer ? 1 : 0)
+  const quizPassed = finalScore === totalQuestions // Perfect score required
 
   return (
     <MotionDiv initial="hidden" animate="visible" variants={fadeIn}>
       {!quizCompleted ? (
-        <Card>
-          <CardHeader>
+        <Card className="border-purple-200 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>Quiz Challenge</CardTitle>
-                <CardDescription>
-                  Question {currentQuestionIndex + 1} of {totalQuestions}
+                <CardTitle className="text-purple-800">Quiz Challenge</CardTitle>
+                <CardDescription className="text-purple-600">
+                  Question {currentQuestionIndex + 1} of {totalQuestions} • Perfect score required to unlock next module
                 </CardDescription>
               </div>
               <div className="text-right">
-                <div className="text-sm font-medium">Score</div>
-                <div className="text-2xl font-bold">
+                <div className="text-sm font-medium text-purple-600">Score</div>
+                <div className="text-2xl font-bold text-purple-800">
                   {score}/{totalQuestions}
                 </div>
               </div>
             </div>
-            <Progress value={progress} className="h-2" />
+            <Progress value={progress} className="h-3 bg-purple-100" />
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-lg font-medium mb-4">{currentQuestion.question}</div>
+          <CardContent className="space-y-4 p-6">
+            <div className="text-lg font-medium mb-4 text-gray-800">{currentQuestion.question}</div>
 
             <div className="space-y-3">
               {currentQuestion.options.map((option, index) => (
                 <div
                   key={index}
-                  className={`quiz-option ${selectedOption === index ? "selected" : ""} 
-                    ${isAnswerChecked && index === currentQuestion.correctAnswer ? "correct" : ""} 
-                    ${isAnswerChecked && selectedOption === index && selectedOption !== currentQuestion.correctAnswer ? "incorrect" : ""}`}
+                  className={`quiz-option cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
+                    selectedOption === index
+                      ? "border-purple-400 bg-purple-50"
+                      : "border-gray-200 hover:border-purple-300 hover:bg-purple-25"
+                  } 
+                    ${isAnswerChecked && index === currentQuestion.correctAnswer ? "border-green-400 bg-green-50" : ""} 
+                    ${isAnswerChecked && selectedOption === index && selectedOption !== currentQuestion.correctAnswer ? "border-red-400 bg-red-50" : ""}`}
                   onClick={() => handleOptionSelect(index)}
                 >
                   <div className="flex items-start">
-                    <div className="inline-flex items-center justify-center rounded-full bg-secondary h-6 w-6 mr-2 text-sm">
+                    <div className="inline-flex items-center justify-center rounded-full bg-purple-100 h-6 w-6 mr-3 text-sm font-medium text-purple-700">
                       {String.fromCharCode(65 + index)}
                     </div>
-                    <div>{option}</div>
+                    <div className="flex-1">{option}</div>
 
                     {isAnswerChecked && (
                       <div className="ml-auto">
@@ -189,7 +196,7 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
             </div>
 
             {isAnswerChecked && (
-              <Alert className={isCorrect ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}>
+              <Alert className={`${isCorrect ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"} mt-4`}>
                 <div className="flex items-start">
                   {isCorrect ? (
                     <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
@@ -198,7 +205,7 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
                   )}
                   <div>
                     <AlertTitle className={isCorrect ? "text-green-700" : "text-red-700"}>
-                      {isCorrect ? "Correct!" : "Incorrect"}
+                      {isCorrect ? "Excellent!" : "Not quite right"}
                     </AlertTitle>
                     <AlertDescription className={isCorrect ? "text-green-600" : "text-red-600"}>
                       {currentQuestion.explanation}
@@ -208,13 +215,17 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
               </Alert>
             )}
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between bg-gray-50">
             {!isAnswerChecked ? (
-              <Button onClick={checkAnswer} disabled={selectedOption === null} className="w-full">
+              <Button
+                onClick={checkAnswer}
+                disabled={selectedOption === null}
+                className="w-full bg-purple-600 hover:bg-purple-700"
+              >
                 Check Answer
               </Button>
             ) : (
-              <Button onClick={nextQuestion} className="w-full">
+              <Button onClick={nextQuestion} className="w-full bg-purple-600 hover:bg-purple-700">
                 {currentQuestionIndex < totalQuestions - 1 ? (
                   <>
                     Next Question <ArrowRight className="ml-2 h-4 w-4" />
@@ -229,42 +240,89 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
           </CardFooter>
         </Card>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>Quiz Results</CardTitle>
-            <CardDescription>You've completed the quiz for this module</CardDescription>
+        <Card className="border-purple-200 shadow-lg">
+          <CardHeader
+            className={`${quizPassed ? "bg-gradient-to-r from-green-50 to-emerald-50" : "bg-gradient-to-r from-amber-50 to-orange-50"}`}
+          >
+            <CardTitle className="flex items-center gap-2">
+              {quizPassed ? (
+                <>
+                  <Trophy className="h-6 w-6 text-yellow-500" />
+                  <span className="text-green-800">Congratulations!</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-6 w-6 text-amber-500" />
+                  <span className="text-amber-800">Keep Learning!</span>
+                </>
+              )}
+            </CardTitle>
+            <CardDescription className={quizPassed ? "text-green-600" : "text-amber-600"}>
+              You've completed the quiz for this module
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 p-6">
             {isUpdatingProgress ? (
               <div className="text-center py-6">
                 <div className="inline-flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
                 </div>
-                <p className="mt-4 text-muted-foreground">Saving your progress...</p>
+                <p className="mt-4 text-gray-600">Saving your progress...</p>
               </div>
             ) : (
               <>
                 <div className="text-center py-6">
-                  <div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-4 mb-4">
+                  <div
+                    className={`inline-flex items-center justify-center rounded-full p-6 mb-4 ${
+                      quizPassed ? "bg-green-100" : "bg-amber-100"
+                    }`}
+                  >
                     {quizPassed ? (
-                      <CheckCircle className="h-12 w-12 text-green-500" />
+                      <div className="relative">
+                        <Trophy className="h-16 w-16 text-yellow-500" />
+                        <Sparkles className="h-6 w-6 text-yellow-400 absolute -top-1 -right-1 animate-pulse" />
+                      </div>
                     ) : (
-                      <AlertCircle className="h-12 w-12 text-amber-500" />
+                      <AlertCircle className="h-16 w-16 text-amber-500" />
                     )}
                   </div>
 
-                  <h2 className="text-2xl font-bold mb-2">{quizPassed ? "Congratulations!" : "Almost there!"}</h2>
+                  {quizPassed ? (
+                    <div className="space-y-3">
+                      <h2 className="text-3xl font-bold text-green-800 flex items-center justify-center gap-2">
+                        🎉 Amazing Work! 🎉
+                      </h2>
+                      <p className="text-lg text-green-700 font-medium">
+                        Perfect score achieved! You've mastered this module!
+                      </p>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
+                        <div className="flex items-center justify-center gap-2 text-green-800">
+                          <Star className="h-5 w-5 text-yellow-500" />
+                          <span className="font-medium">Module Unlocked!</span>
+                          <Star className="h-5 w-5 text-yellow-500" />
+                        </div>
+                        <p className="text-green-700 text-sm mt-1">
+                          You can now proceed to the next exciting module in your learning journey!
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <h2 className="text-2xl font-bold text-amber-800">Almost There!</h2>
+                      <p className="text-amber-700">You need a perfect score (100%) to unlock the next module.</p>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
+                        <p className="text-amber-800 font-medium">💡 Study Tip:</p>
+                        <p className="text-amber-700 text-sm mt-1">
+                          Review the module content carefully and try again. You've got this!
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-                  <p className="text-muted-foreground mb-4">
-                    {quizPassed
-                      ? "You've passed the quiz and can now proceed to the next module."
-                      : "You need to score at least 70% to unlock the next module. Try again!"}
-                  </p>
-
-                  <div className="text-4xl font-bold mb-6">
-                    {score}/{totalQuestions}
-                    <span className="text-lg text-muted-foreground ml-2">
-                      ({Math.round((score / totalQuestions) * 100)}%)
+                  <div className="text-4xl font-bold mb-6 mt-4">
+                    {finalScore}/{totalQuestions}
+                    <span className="text-lg text-gray-500 ml-2">
+                      ({Math.round((finalScore / totalQuestions) * 100)}%)
                     </span>
                   </div>
                 </div>
@@ -276,28 +334,22 @@ export function ModuleQuiz({ quiz, moduleId, careerPath, userId }: ModuleQuizPro
                     <AlertDescription className="text-red-600">{progressUpdateError}</AlertDescription>
                   </Alert>
                 )}
-
-                {!quizPassed && (
-                  <Alert className="bg-amber-50 border-amber-200">
-                    <AlertCircle className="h-5 w-5 text-amber-500 mr-2" />
-                    <AlertTitle className="text-amber-700">Review Required</AlertTitle>
-                    <AlertDescription className="text-amber-600">
-                      You need to score at least 70% to unlock the next module. Review the content and try again.
-                    </AlertDescription>
-                  </Alert>
-                )}
               </>
             )}
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <Button onClick={restartQuiz} variant={quizPassed ? "outline" : "default"} className="w-full">
+          <CardFooter className="flex flex-col space-y-2 bg-gray-50">
+            <Button
+              onClick={restartQuiz}
+              variant={quizPassed ? "outline" : "default"}
+              className={`w-full ${!quizPassed ? "bg-purple-600 hover:bg-purple-700" : "border-purple-300 text-purple-700 hover:bg-purple-50"}`}
+            >
               <RotateCcw className="mr-2 h-4 w-4" />
-              Retry Quiz
+              Try Again
             </Button>
 
             {quizPassed && (
-              <Button onClick={continueToNextModule} className="w-full">
-                Continue Learning
+              <Button onClick={continueToNextModule} className="w-full bg-green-600 hover:bg-green-700">
+                Continue Your Journey
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             )}

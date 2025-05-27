@@ -26,32 +26,55 @@ const config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#8B5CF6", // Purple-500
+          foreground: "#FFFFFF",
+          50: "#F3F0FF",
+          100: "#E9E2FF",
+          200: "#D4C5FF",
+          300: "#B8A1FF",
+          400: "#9B7AFF",
+          500: "#8B5CF6",
+          600: "#7C3AED",
+          700: "#6D28D9",
+          800: "#5B21B6",
+          900: "#4C1D95",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "#F1F0FF", // Very light purple
+          foreground: "#5B21B6",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "#F8F7FF", // Ultra light purple
+          foreground: "#6B7280",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "#E9E2FF", // Light purple
+          foreground: "#5B21B6",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "#FFFFFF",
+          foreground: "#1F2937",
+        },
+        purple: {
+          25: "#FEFCFF",
+          50: "#F3F0FF",
+          100: "#E9E2FF",
+          200: "#D4C5FF",
+          300: "#B8A1FF",
+          400: "#9B7AFF",
+          500: "#8B5CF6",
+          600: "#7C3AED",
+          700: "#6D28D9",
+          800: "#5B21B6",
+          900: "#4C1D95",
         },
       },
       borderRadius: {

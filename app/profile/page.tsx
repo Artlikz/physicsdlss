@@ -13,7 +13,8 @@ import { getUserStatistics } from "@/lib/data-service"
 import { ProgressChart } from "@/components/progress-chart"
 import { Achievements } from "@/components/achievements"
 import { AccountSettings } from "@/components/account-settings"
-import { Award, BookOpen, CheckCircle, LogOut, User, Settings } from "lucide-react"
+import { Award, BookOpen, CheckCircle, LogOut, User, Settings, AlertCircle, ExternalLink } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -21,6 +22,9 @@ export default function ProfilePage() {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("progress")
+  const [error, setError] = useState<string | null>(null)
+  const [setupLoading, setSetupLoading] = useState(false)
+  const [manualSetup, setManualSetup] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -34,10 +38,20 @@ export default function ProfilePage() {
 
         setCurrentUser(user)
 
-        const userStats = await getUserStatistics(user.id)
-        setStats(userStats)
+        try {
+          const userStats = await getUserStatistics(user.id)
+          setStats(userStats)
+        } catch (statsError: any) {
+          console.error("Error loading user statistics:", statsError)
+          if (statsError.message?.includes("does not exist")) {
+            setError("Database tables not found. Please set up the database first.")
+          } else {
+            setError("Failed to load user statistics. Please try again.")
+          }
+        }
       } catch (error) {
         console.error("Error loading profile data:", error)
+        setError("Failed to load profile data. Please try again.")
       } finally {
         setLoading(false)
       }
@@ -52,6 +66,37 @@ export default function ProfilePage() {
       router.push("/")
     } catch (error) {
       console.error("Error logging out:", error)
+    }
+  }
+
+  const handleSetupDatabase = async () => {
+    setSetupLoading(true)
+    try {
+      const response = await fetch("/api/setup-tables", {
+        method: "POST",
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        setError(null)
+        setManualSetup(false)
+        // Reload the page to fetch data again
+        window.location.reload()
+      } else {
+        if (result.manualSetup) {
+          setManualSetup(true)
+          setError(`Automatic setup failed. ${result.details}`)
+        } else {
+          setError(`Setup failed: ${result.details || "Unknown error"}`)
+        }
+      }
+    } catch (error) {
+      console.error("Error setting up database:", error)
+      setError("Failed to setup database. Please try again or set up manually.")
+      setManualSetup(true)
+    } finally {
+      setSetupLoading(false)
     }
   }
 
@@ -93,6 +138,44 @@ export default function ProfilePage() {
 
       <main className="flex-1 container py-6">
         <MotionDiv initial="hidden" animate="visible" variants={fadeIn} transition={{ duration: 0.5 }}>
+          {error && (
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="flex flex-col gap-3">
+                  <span>{error}</span>
+                  <div className="flex gap-2">
+                    {error.includes("Database tables not found") && !manualSetup && (
+                      <Button onClick={handleSetupDatabase} disabled={setupLoading} size="sm">
+                        {setupLoading ? "Setting up..." : "Setup Database"}
+                      </Button>
+                    )}
+                    {manualSetup && (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-sm">Please create the tables manually in your Supabase dashboard:</p>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" asChild>
+                            <a
+                              href="https://jmpqvxqurzeshrkrfmtk.supabase.co/project/default/sql"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Open SQL Editor
+                            </a>
+                          </Button>
+                          <Button size="sm" variant="outline" asChild>
+                            <Link href="/admin">View Schema</Link>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="flex flex-col md:flex-row gap-6 mb-6">
             <div className="md:w-1/3">
               <Card>
@@ -162,28 +245,54 @@ export default function ProfilePage() {
                       <CardDescription>Your progress across all career paths</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="space-y-6">
-                        {stats?.progressByPath?.map((progress: any) => (
-                          <div key={progress.career_path} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium capitalize">{progress.career_path} Path</span>
-                              <span className="text-sm text-muted-foreground">
-                                {progress.completed_modules?.length || 0}/6 modules
-                              </span>
+                      {stats ? (
+                        <div className="space-y-6">
+                          {stats?.progressByPath?.length > 0 ? (
+                            stats.progressByPath.map((progress: any) => (
+                              <div key={progress.career_path} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium capitalize">{progress.career_path} Path</span>
+                                  <span className="text-sm text-muted-foreground">
+                                    {progress.completed_modules?.length || 0}/6 modules
+                                  </span>
+                                </div>
+                                <Progress
+                                  value={
+                                    progress.completed_modules?.length
+                                      ? (progress.completed_modules.length / 6) * 100
+                                      : 0
+                                  }
+                                  className="h-2"
+                                />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-6">
+                              <p className="text-muted-foreground">
+                                No progress data found. Start learning to see your progress!
+                              </p>
+                              <Button className="mt-4" asChild>
+                                <Link href="/career-paths">Start Learning</Link>
+                              </Button>
                             </div>
-                            <Progress
-                              value={
-                                progress.completed_modules?.length ? (progress.completed_modules.length / 6) * 100 : 0
-                              }
-                              className="h-2"
-                            />
-                          </div>
-                        ))}
+                          )}
 
-                        <div className="h-60">
-                          <ProgressChart userId={currentUser.id} careerPath="engineer" />
+                          {stats?.progressByPath?.length > 0 && (
+                            <div className="h-60">
+                              <ProgressChart userId={currentUser.id} careerPath="engineer" />
+                            </div>
+                          )}
                         </div>
-                      </div>
+                      ) : (
+                        <div className="text-center py-6">
+                          <p className="text-muted-foreground">Unable to load progress data.</p>
+                          {error && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Please set up the database tables first.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
@@ -195,7 +304,18 @@ export default function ProfilePage() {
                       <CardDescription>Badges and awards you've earned</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <Achievements userId={currentUser.id} />
+                      {stats ? (
+                        <Achievements userId={currentUser.id} />
+                      ) : (
+                        <div className="text-center py-6">
+                          <p className="text-muted-foreground">Unable to load achievements data.</p>
+                          {error && (
+                            <p className="text-sm text-muted-foreground mt-2">
+                              Please set up the database tables first.
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </TabsContent>
